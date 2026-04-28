@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Juego de Ajedrez</title>
+  <style>
+    :root{
+      --bg1:#090814;
+      --bg2:#16122b;
+      --gold:#f5c542;
+      --cyan:#6ee7ff;
+      --purple:#a855f7;
+      --card:rgba(255,255,255,.09);
+
+      --whitePiece:#f5f0df;
+      --blackPiece:#2a1710;
+      --pieceGlow:#f5c542;
+      --pieceShadow:rgba(0,0,0,.45);
+      --pieceFilter:drop-shadow(0 6px 4px rgba(0,0,0,.35)) drop-shadow(0 0 12px var(--pieceGlow));
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0;font-family:Arial, Helvetica, sans-serif}
+
+    html, body{
+      width:100%;
+      min-height:100%;
+    }
+
+    body{
+      min-height:100vh;
+      overflow:hidden;
+      color:white;
+      background:radial-gradient(circle at 20% 20%, #27204d, transparent 35%),
+                 radial-gradient(circle at 80% 10%, #3b145f, transparent 30%),
+                 linear-gradient(135deg,var(--bg1),var(--bg2));
+    }
+
+    .bg{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      z-index:-1;
+    }
+
+    .orb{
+      position:absolute;
+      width:260px;
+      height:260px;
+      border-radius:50%;
+      background:radial-gradient(circle, rgba(245,197,66,.35), transparent 65%);
+      filter:blur(10px);
+      animation:float 9s infinite alternate ease-in-out;
+    }
+
+    .orb:nth-child(1){left:8%;top:12%}
+    .orb:nth-child(2){
+      right:8%;
+      bottom:10%;
+      background:radial-gradient(circle, rgba(110,231,255,.28), transparent 65%);
+      animation-duration:12s;
+    }
+    .orb:nth-child(3){
+      left:45%;
+      bottom:-8%;
+      background:radial-gradient(circle, rgba(168,85,247,.26), transparent 65%);
+      animation-duration:10s;
+    }
+
+    @keyframes float{
+      from{transform:translateY(0) translateX(0) scale(1)}
+      to{transform:translateY(-60px) translateX(35px) scale(1.15)}
+    }
+
+    .screen{
+      min-height:100vh;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .screen.active{display:flex}
+
+    .home-card, .skins-card, .game-wrap{
+      width:min(1100px,96vw);
+      border:1px solid rgba(255,255,255,.18);
+      background:linear-gradient(145deg, rgba(255,255,255,.13), rgba(255,255,255,.05));
+      backdrop-filter:blur(18px);
+      border-radius:28px;
+      box-shadow:0 30px 90px rgba(0,0,0,.45);
+      padding:34px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .home-card::before, .skins-card::before, .game-wrap::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background:linear-gradient(120deg, transparent, rgba(245,197,66,.22), transparent);
+      transform:translateX(-100%);
+      animation:shine 5s infinite;
+      pointer-events:none;
+    }
+
+    @keyframes shine{to{transform:translateX(100%)}}
+
+    .title{
+      text-align:center;
+      font-size:clamp(42px,8vw,92px);
+      line-height:.95;
+      font-weight:900;
+      letter-spacing:1px;
+      color:var(--gold);
+      text-transform:uppercase;
+      text-shadow:
+        0 2px 0 #8b5b00,
+        0 4px 0 #5e3e00,
+        0 8px 24px rgba(245,197,66,.45),
+        0 0 42px rgba(245,197,66,.35);
+      transform:perspective(600px) rotateX(10deg);
+      margin-bottom:18px;
+    }
+
+    .subtitle{
+      text-align:center;
+      font-size:clamp(15px,2vw,22px);
+      color:#e9e3ff;
+      margin-bottom:38px;
+      text-shadow:0 0 18px rgba(255,255,255,.25);
+    }
+
+    .menu{
+      display:flex;
+      gap:18px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    button{
+      border:0;
+      cursor:pointer;
+      color:#160f06;
+      font-weight:900;
+      letter-spacing:.8px;
+      border-radius:18px;
+      padding:16px 34px;
+      font-size:18px;
+      background:linear-gradient(135deg,#fff1a6,var(--gold),#e59500);
+      box-shadow:0 14px 34px rgba(245,197,66,.28), inset 0 2px 0 rgba(255,255,255,.55);
+      transition:.25s;
+    }
+
+    button:hover{transform:translateY(-4px) scale(1.03);filter:saturate(1.2)}
+
+    button.secondary{
+      color:white;
+      background:linear-gradient(135deg,#3b2b70,#6d28d9,#0ea5e9);
+      box-shadow:0 14px 34px rgba(110,231,255,.18), inset 0 2px 0 rgba(255,255,255,.25);
+    }
+
+    .game-wrap{
+      display:grid;
+      grid-template-columns:minmax(320px, 1fr) 310px;
+      gap:28px;
+      align-items:start;
+    }
+
+    .board-box{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:16px;
+      min-width:0;
+    }
+
+    .status{
+      width:min(620px,90vw);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      padding:14px 18px;
+      border-radius:18px;
+      background:rgba(0,0,0,.28);
+      border:1px solid rgba(255,255,255,.12);
+      font-weight:800;
+    }
+
+    .board{
+      width:min(620px,90vw,calc(100vh - 190px));
+      height:min(620px,90vw,calc(100vh - 190px));
+      display:grid;
+      grid-template-columns:repeat(8, 1fr);
+      grid-template-rows:repeat(8, 1fr);
+      border-radius:22px;
+      overflow:hidden;
+      border:6px solid rgba(245,197,66,.8);
+      box-shadow:0 26px 60px rgba(0,0,0,.55),0 0 42px rgba(245,197,66,.22);
+      flex:0 0 auto;
+    }
+
+    .cell{
+      width:100%;
+      height:100%;
+      min-width:0;
+      min-height:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+      position:relative;
+      overflow:hidden;
+      aspect-ratio:1/1;
+    }
+
+    .light{background:linear-gradient(135deg,#f2d9a2,#c98d4a)}
+    .dark{background:linear-gradient(135deg,#5b2c1d,#2d120d)}
+
+    .cell.selected{
+      outline:4px solid var(--cyan);
+      outline-offset:-4px;
+    }
+
+    .cell.move::after{
+      content:"";
+      width:22%;
+      height:22%;
+      border-radius:50%;
+      background:rgba(110,231,255,.85);
+      box-shadow:0 0 20px rgba(110,231,255,.9);
+      position:absolute;
+      z-index:1;
+      pointer-events:none;
+    }
+
+    .piece{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:clamp(28px, 7.4vmin, 58px);
+      line-height:1;
+      width:100%;
+      height:100%;
+      pointer-events:none;
+      filter:var(--pieceFilter);
+      transition:color .2s, filter .2s, transform .18s;
+      animation:pieceIdle 2.8s infinite ease-in-out;
+      text-shadow:
+        0 2px 0 rgba(255,255,255,.16),
+        0 8px 14px var(--pieceShadow);
+    }
+
+    @keyframes pieceIdle{
+      0%,100%{transform:translateY(0) scale(1)}
+      50%{transform:translateY(-2px) scale(1.01)}
+    }
+
+    .piece.white{color:var(--whitePiece)}
+    .piece.black{color:var(--blackPiece)}
+
+    .side{
+      background:rgba(0,0,0,.24);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius:22px;
+      padding:20px;
+    }
+
+    .side h2{
+      font-size:26px;
+      color:var(--gold);
+      margin-bottom:14px;
+    }
+
+    .side p{
+      color:#ded8ff;
+      line-height:1.5;
+      margin-bottom:16px;
+    }
+
+    .captured{
+      min-height:80px;
+      padding:12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.07);
+      font-size:28px;
+      line-height:1.4;
+      word-break:break-word;
+    }
+
+    .controls{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .controls button{
+      font-size:14px;
+      padding:12px 16px;
+      border-radius:14px;
+    }
+
+    .skins-card h2{
+      text-align:center;
+      color:var(--gold);
+      font-size:42px;
+      margin-bottom:10px;
+      text-shadow:0 0 24px rgba(245,197,66,.3);
+    }
+
+    .skins-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:16px;
+      margin:22px 0;
+    }
+
+    .skin-item{
+      padding:16px;
+      border-radius:18px;
+      background:rgba(0,0,0,.24);
+      border:1px solid rgba(255,255,255,.14);
+    }
+
+    .skin-item label{
+      display:block;
+      font-weight:900;
+      margin-bottom:10px;
+      color:#fff4c6;
+    }
+
+    input[type="color"], select{
+      width:100%;
+      height:44px;
+      border:0;
+      border-radius:12px;
+      background:#fff;
+      padding:4px;
+      cursor:pointer;
+    }
+
+    select{
+      padding:0 12px;
+      font-weight:800;
+    }
+
+    .preview-row{
+      display:flex;
+      justify-content:center;
+      gap:24px;
+      align-items:center;
+      margin-top:10px;
+      padding:16px;
+      border-radius:18px;
+      background:rgba(0,0,0,.22);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
+    .preview-piece{
+      font-size:58px;
+      line-height:1;
+      filter:var(--pieceFilter);
+      text-shadow:0 8px 14px rgba(0,0,0,.45);
+    }
+
+    .preview-piece.white{color:var(--whitePiece)}
+    .preview-piece.black{color:var(--blackPiece)}
+
+    @media(max-width:900px){
+      body{overflow:auto}
+      .screen{align-items:flex-start}
+      .game-wrap{grid-template-columns:1fr}
+      .side{order:-1}
+      .board{
+        width:min(92vw, calc(100vh - 330px), 620px);
+        height:min(92vw, calc(100vh - 330px), 620px);
+      }
+      .status{width:min(92vw,620px)}
+    }
+
+    @media(max-width:520px){
+      .home-card, .skins-card, .game-wrap{padding:22px;border-radius:22px}
+      .status{flex-direction:column;text-align:center}
+      .board{
+        width:min(92vw, 420px);
+        height:min(92vw, 420px);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <section id="home" class="screen active">
+    <div class="home-card">
+      <h1 class="title">Mini Juego<br>de Ajedrez</h1>
+      <p class="subtitle">Creado por: <b>Junior Correa</b>, <b>Renzo Fernández</b> y <b>Dante Gomez</b></p>
+      <div class="menu">
+        <button onclick="showScreen('game')">PLAY</button>
+        <button class="secondary" onclick="showScreen('skins')">SKINS</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="skins" class="screen">
+    <div class="skins-card">
+      <h2>Skins de Fichas</h2>
+      <p class="subtitle">Cambiá colores y textura visual. Los cambios se aplican al instante y quedan guardados mientras jugás.</p>
+
+      <div class="preview-row">
+        <span class="preview-piece white">♔</span>
+        <span class="preview-piece black">♚</span>
+      </div>
+
+      <div class="skins-grid">
+        <div class="skin-item">
+          <label>Color fichas blancas</label>
+          <input type="color" id="whiteColor" value="#f5f0df">
+        </div>
+        <div class="skin-item">
+          <label>Color fichas negras</label>
+          <input type="color" id="blackColor" value="#2a1710">
+        </div>
+        <div class="skin-item">
+          <label>Brillo de fichas</label>
+          <input type="color" id="glowColor" value="#f5c542">
+        </div>
+        <div class="skin-item">
+          <label>Textura / estilo</label>
+          <select id="texture">
+            <option value="custom">Personalizado</option>
+            <option value="classic">Clásico Real</option>
+            <option value="gold">Dorado Épico</option>
+            <option value="ice">Hielo Futurista</option>
+            <option value="neon">Neón Arcade</option>
+            <option value="shadow">Obsidiana</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="menu">
+        <button onclick="applySkinsAndPlay()">APLICAR Y JUGAR</button>
+        <button class="secondary" onclick="showScreen('home')">VOLVER</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="game" class="screen">
+    <div class="game-wrap">
+      <div class="board-box">
+        <div class="status">
+          <span id="turnText">Turno: Blancas</span>
+          <span id="message">Seleccioná una ficha</span>
+        </div>
+        <div id="board" class="board"></div>
+      </div>
+
+      <aside class="side">
+        <h2>Partida</h2>
+        <p>Juego local para 2 jugadores. Las fichas se mueven por turnos. Tocá una ficha y luego una casilla marcada.</p>
+        <h3>Capturadas</h3>
+        <div id="captured" class="captured"></div>
+        <div class="controls">
+          <button onclick="resetGame()">REINICIAR</button>
+          <button class="secondary" onclick="showScreen('home')">MENÚ</button>
+          <button class="secondary" onclick="showScreen('skins')">SKINS</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+<script>
+const symbols = {
+  r:"♜", n:"♞", b:"♝", q:"♛", k:"♚", p:"♟",
+  R:"♖", N:"♘", B:"♗", Q:"♕", K:"♔", P:"♙"
+};
+
+let board, selected = null, turn = "white", legalMoves = [], captured = [];
+
+const skinState = {
+  white: "#f5f0df",
+  black: "#2a1710",
+  glow: "#f5c542",
+  texture: "custom"
+};
+
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  syncSkinInputs();
+  if(id === "game") renderBoard();
+}
+
+function initialBoard(){
+  return [
+    ["r","n","b","q","k","b","n","r"],
+    ["p","p","p","p","p","p","p","p"],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["P","P","P","P","P","P","P","P"],
+    ["R","N","B","Q","K","B","N","R"]
+  ];
+}
+
+function resetGame(){
+  board = initialBoard();
+  selected = null;
+  turn = "white";
+  legalMoves = [];
+  captured = [];
+  updateStatus("Seleccioná una ficha");
+  renderBoard();
+}
+
+function pieceColor(piece){
+  if(!piece) return null;
+  return piece === piece.toUpperCase() ? "white" : "black";
+}
+
+function isEnemy(piece, target){
+  return piece && target && pieceColor(piece) !== pieceColor(target);
+}
+
+function inside(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+
+function clearPath(r,c,dr,dc){
+  let piece = board[r][c];
+  let moves = [];
+  let nr = r + dr, nc = c + dc;
+  while(inside(nr,nc)){
+    if(!board[nr][nc]) moves.push([nr,nc]);
+    else{
+      if(isEnemy(piece, board[nr][nc])) moves.push([nr,nc]);
+      break;
+    }
+    nr += dr; nc += dc;
+  }
+  return moves;
+}
+
+function getMoves(r,c){
+  const piece = board[r][c];
+  if(!piece) return [];
+  const color = pieceColor(piece);
+  const low = piece.toLowerCase();
+  let moves = [];
+
+  if(low === "p"){
+    const dir = color === "white" ? -1 : 1;
+    const start = color === "white" ? 6 : 1;
+
+    if(inside(r+dir,c) && !board[r+dir][c]) moves.push([r+dir,c]);
+
+    if(
+      r === start &&
+      inside(r+dir*2,c) &&
+      !board[r+dir][c] &&
+      !board[r+dir*2][c]
+    ){
+      moves.push([r+dir*2,c]);
+    }
+
+    for(const dc of [-1,1]){
+      if(inside(r+dir,c+dc) && isEnemy(piece, board[r+dir][c+dc])){
+        moves.push([r+dir,c+dc]);
+      }
+    }
+  }
+
+  if(low === "r" || low === "q"){
+    moves.push(
+      ...clearPath(r,c,1,0),
+      ...clearPath(r,c,-1,0),
+      ...clearPath(r,c,0,1),
+      ...clearPath(r,c,0,-1)
+    );
+  }
+
+  if(low === "b" || low === "q"){
+    moves.push(
+      ...clearPath(r,c,1,1),
+      ...clearPath(r,c,1,-1),
+      ...clearPath(r,c,-1,1),
+      ...clearPath(r,c,-1,-1)
+    );
+  }
+
+  if(low === "n"){
+    [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]].forEach(([dr,dc])=>{
+      const nr=r+dr,nc=c+dc;
+      if(inside(nr,nc) && (!board[nr][nc] || isEnemy(piece,board[nr][nc]))) moves.push([nr,nc]);
+    });
+  }
+
+  if(low === "k"){
+    for(let dr=-1; dr<=1; dr++){
+      for(let dc=-1; dc<=1; dc++){
+        if(dr===0 && dc===0) continue;
+        const nr=r+dr,nc=c+dc;
+        if(inside(nr,nc) && (!board[nr][nc] || isEnemy(piece,board[nr][nc]))) moves.push([nr,nc]);
+      }
+    }
+  }
+
+  return moves;
+}
+
+function renderBoard(){
+  const el = document.getElementById("board");
+  if(!el) return;
+
+  el.innerHTML = "";
+
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const cell = document.createElement("div");
+      cell.className = "cell " + ((r+c)%2===0 ? "light":"dark");
+
+      if(selected && selected[0]===r && selected[1]===c){
+        cell.classList.add("selected");
+      }
+
+      if(legalMoves.some(m=>m[0]===r && m[1]===c)){
+        cell.classList.add("move");
+      }
+
+      cell.onclick = () => clickCell(r,c);
+
+      const piece = board[r][c];
+      if(piece){
+        const span = document.createElement("span");
+        span.className = "piece " + pieceColor(piece);
+        span.textContent = symbols[piece];
+        cell.appendChild(span);
+      }
+
+      el.appendChild(cell);
+    }
+  }
+
+  document.getElementById("turnText").textContent = "Turno: " + (turn === "white" ? "Blancas" : "Negras");
+  document.getElementById("captured").textContent = captured.map(p=>symbols[p]).join(" ");
+}
+
+function clickCell(r,c){
+  const piece = board[r][c];
+
+  if(selected){
+    const ok = legalMoves.some(m=>m[0]===r && m[1]===c);
+
+    if(ok){
+      const [sr,sc] = selected;
+      const moving = board[sr][sc];
+
+      if(board[r][c]) {
+        captured.push(board[r][c]);
+
+        if(board[r][c].toLowerCase() === "k"){
+          updateStatus((turn === "white" ? "Blancas" : "Negras") + " ganan. Rey capturado.");
+          board[r][c] = moving;
+          board[sr][sc] = "";
+          selected = null;
+          legalMoves = [];
+          renderBoard();
+          return;
+        }
+      }
+
+      board[r][c] = moving;
+      board[sr][sc] = "";
+
+      if(moving === "P" && r === 0) board[r][c] = "Q";
+      if(moving === "p" && r === 7) board[r][c] = "q";
+
+      turn = turn === "white" ? "black" : "white";
+      selected = null;
+      legalMoves = [];
+      updateStatus("Seleccioná una ficha");
+      renderBoard();
+      return;
+    }
+
+    selected = null;
+    legalMoves = [];
+  }
+
+  if(piece && pieceColor(piece) === turn){
+    selected = [r,c];
+    legalMoves = getMoves(r,c);
+    updateStatus("Movimientos disponibles: " + legalMoves.length);
+  } else if(piece) {
+    updateStatus("Esa ficha no es de tu turno");
+  } else {
+    updateStatus("Seleccioná una ficha válida");
+  }
+
+  renderBoard();
+}
+
+function updateStatus(txt){
+  const message = document.getElementById("message");
+  if(message) message.textContent = txt;
+}
+
+function applySkinVars(){
+  document.documentElement.style.setProperty("--whitePiece", skinState.white);
+  document.documentElement.style.setProperty("--blackPiece", skinState.black);
+  document.documentElement.style.setProperty("--pieceGlow", skinState.glow);
+
+  let filter = "drop-shadow(0 6px 4px rgba(0,0,0,.35)) drop-shadow(0 0 12px var(--pieceGlow))";
+
+  if(skinState.texture === "gold"){
+    filter = "drop-shadow(0 5px 3px rgba(0,0,0,.45)) drop-shadow(0 0 16px #ffd166)";
+  }
+
+  if(skinState.texture === "ice"){
+    filter = "drop-shadow(0 5px 3px rgba(0,0,0,.35)) drop-shadow(0 0 18px #6ee7ff)";
+  }
+
+  if(skinState.texture === "neon"){
+    filter = "drop-shadow(0 0 10px var(--pieceGlow)) drop-shadow(0 0 22px var(--pieceGlow))";
+  }
+
+  if(skinState.texture === "shadow"){
+    filter = "drop-shadow(0 8px 4px rgba(0,0,0,.65)) drop-shadow(0 0 10px var(--pieceGlow))";
+  }
+
+  document.documentElement.style.setProperty("--pieceFilter", filter);
+}
+
+function syncSkinInputs(){
+  const white = document.getElementById("whiteColor");
+  const black = document.getElementById("blackColor");
+  const glow = document.getElementById("glowColor");
+  const texture = document.getElementById("texture");
+
+  if(white) white.value = skinState.white;
+  if(black) black.value = skinState.black;
+  if(glow) glow.value = skinState.glow;
+  if(texture) texture.value = skinState.texture;
+}
+
+function readSkinInputs(){
+  const texture = document.getElementById("texture").value;
+  skinState.texture = texture;
+
+  if(texture === "classic"){
+    skinState.white = "#f5f0df";
+    skinState.black = "#2a1710";
+    skinState.glow = "#f5c542";
+  } else if(texture === "gold"){
+    skinState.white = "#ffe9a1";
+    skinState.black = "#8a4f08";
+    skinState.glow = "#ffd166";
+  } else if(texture === "ice"){
+    skinState.white = "#e8fbff";
+    skinState.black = "#226b89";
+    skinState.glow = "#6ee7ff";
+  } else if(texture === "neon"){
+    skinState.white = "#ff4dff";
+    skinState.black = "#39ff14";
+    skinState.glow = "#a855f7";
+  } else if(texture === "shadow"){
+    skinState.white = "#d9d9d9";
+    skinState.black = "#070707";
+    skinState.glow = "#ffffff";
+  } else {
+    skinState.white = document.getElementById("whiteColor").value;
+    skinState.black = document.getElementById("blackColor").value;
+    skinState.glow = document.getElementById("glowColor").value;
+  }
+
+  applySkinVars();
+  syncSkinInputs();
+  renderBoard();
+}
+
+function applySkinsAndPlay(){
+  readSkinInputs();
+  updateStatus("Skin aplicada");
+  showScreen("game");
+}
+
+["whiteColor","blackColor","glowColor"].forEach(id=>{
+  document.addEventListener("input", function(e){
+    if(e.target && e.target.id === id){
+      skinState.texture = "custom";
+      skinState.white = document.getElementById("whiteColor").value;
+      skinState.black = document.getElementById("blackColor").value;
+      skinState.glow = document.getElementById("glowColor").value;
+      applySkinVars();
+      syncSkinInputs();
+      renderBoard();
+    }
+  });
+});
+
+document.addEventListener("change", function(e){
+  if(e.target && e.target.id === "texture"){
+    readSkinInputs();
+  }
+});
+
+resetGame();
+applySkinVars();
+</script>
+</body>
+</html>
